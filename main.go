@@ -16,7 +16,6 @@ import (
 	"net/smtp"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -38,9 +37,10 @@ const (
 
 func main() {
 	// Define the command line flags.
-	almaAPIDomain := flag.String("apidomain", "", "The domain of the Alma API server URL to use. Required. (ex: api-ca.hosted.exlibrisgroup.com)")
-	almaAPIKey := flag.String("apikey", "", "The Alma API key. Required.")
-	destURL := flag.String("url", "", "The URL to which the job's parameters should be POST'd. Required.")
+	name := flag.String("name", "Alma API Job Runner", "The name for the job, used for logging and reports only.")
+	domain := flag.String("domain", "", "The domain of the Alma API server URL to use. Required. (ex: api-ca.hosted.exlibrisgroup.com)")
+	key := flag.String("key", "", "The Alma API key. Required.")
+	jobPath := flag.String("url", "", "The URL to which the job's parameters should be POST'd. Starts with a /. Required.")
 	params := flag.String("params", "", "A file storing the XML representation of the job's parameters. Required.")
 	timeout := flag.Int("timeout", 10, "The number of seconds to wait on the Alma API when submitting requests.")
 	maxRetries := flag.Int("retries", 5, "If calling the Alma API results in an error, how many times will the job be resubmitted.")
@@ -50,6 +50,8 @@ func main() {
 	mailTo := flag.String("mailto", "", "The email address to send reports to, comma delimited.")
 	mailFrom := flag.String("mailfrom", "", "The email address reports are send from.")
 
+	// Define the Usage function, which prints to Stderr
+	// helpful information about the tool.
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "alma-api-job-runner:\n")
 		fmt.Fprintf(os.Stderr, "Run a manual job in Alma using the Jobs API.\n")
@@ -73,13 +75,13 @@ func main() {
 	}
 
 	// Exit if any required flags are not set.
-	if *almaAPIDomain == "" {
+	if *domain == "" {
 		log.Fatal("FATAL: An Alma API Server domain is required. https://developers.exlibrisgroup.com/alma/apis/#calling")
 	}
-	if *almaAPIKey == "" {
+	if *key == "" {
 		log.Fatal("FATAL: An Alma API Key is required. https://developers.exlibrisgroup.com/alma/apis/#defining")
 	}
-	if *destURL == "" {
+	if *jobPath == "" {
 		log.Fatal("FATAL: A URL is required. https://developers.exlibrisgroup.com/blog/Working-with-the-Alma-Jobs-API/")
 	}
 	if *params == "" {
@@ -105,76 +107,96 @@ func main() {
 	log.SetOutput(io.MultiWriter(os.Stderr, emailMessage))
 
 	// Add the arguments to the output for later debugging.
+	log.Println(*name)
 	log.Println("Using alma-api-job-runner version", version)
-	log.Println("Running at: ", time.Now().Format(time.RFC3339))
-	log.Println("Alma API Server (apidomain):", *almaAPIDomain)
-	log.Println("Job URL (url):", *destURL)
+	log.Println("Alma API server domain (domain):", *domain)
+	log.Println("Job URL (url):", *jobPath)
 	log.Println("Parameters file (params):", *params)
+	log.Println("Sending email (email):", *sendEmail)
 
-	// Build the request to the Alma API.
-	completeURL, err := url.Parse(fmt.Sprintf("https://%v%v", *almaAPIDomain, *destURL))
-	if err != nil {
-		log.Println("Error building final url from arguments: ", err)
+	// A closure to optionally send the report email and quit
+	optionalEmailAndQuit := func() {
 		if *sendEmail {
-			err := SendEmail("alma-api-job-runner - error", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
+			err := SendEmail(*name+" -- error", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 		os.Exit(1)
 	}
+
+	// Build the request to the Alma API.
+	jobURL, err := url.Parse(fmt.Sprintf("https://%v%v", *domain, *jobPath))
+	if err != nil {
+		log.Println("Error building final url from arguments: ", err)
+		optionalEmailAndQuit()
+	}
+	log.Println("Going to submit parameters to:", jobURL)
 
 	// Load the parameters XML file.
 	// This is done to check that the XML is well formed and valid.
 	loadedParams, err := LoadParameters(*params)
 	if err != nil {
 		log.Println("Error loading parameters: ", err)
-		if *sendEmail {
-			err := SendEmail("alma-api-job-runner - error", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-		os.Exit(1)
+		optionalEmailAndQuit()
+	}
+
+	// Log the parameters.
+	log.Println("Parameters:")
+	for _, param := range loadedParams.Parameters {
+		log.Printf(" %v: %v\n", param.Name.Value, param.Value)
 	}
 
 	// Retry for max retries
-	for retry := 0; retry < *maxRetries; retry++ {
-		jobInstanceID, err := SubmitJob(completeURL, *timeout, *almaAPIKey, loadedParams)
-		if err != nil {
-			log.Printf("Failed to submit job: %v, retrying. (%v/%v)\n", err, retry+1, maxRetries)
-			continue
-		}
-		fmt.Println(jobInstanceID)
-		if *sendEmail {
-			err := SendEmail("alma-api-job-runner - success", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-		os.Exit(0)
+	jobInstanceLink, err := RetrySubmitJob(*maxRetries, jobURL, *timeout, *key, loadedParams)
+	if err != nil {
+		log.Println("Error when submitting job: ", err)
+		optionalEmailAndQuit()
 	}
 
+	log.Println("Successful job submission.")
+
+	instanceURL, err := url.Parse(jobInstanceLink)
+	if err != nil {
+		log.Println("Error parsing instance url from job additional info: ", err)
+		optionalEmailAndQuit()
+	}
+	log.Println("Going to monitor job at: ", instanceURL)
+
+	finalStatus, err := MonitorJobInstance(instanceURL, *timeout, *key)
+	if err != nil {
+		log.Println("Error monitoring job instance: ", err)
+		optionalEmailAndQuit()
+	}
+
+	fmt.Println("Final status: ", finalStatus)
+
 	if *sendEmail {
-		err := SendEmail("alma-api-job-runner - error", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
+		subject := fmt.Sprintf("%v -- %v", *name, finalStatus)
+		err := SendEmail(subject, emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
 		if err != nil {
 			log.Println(err)
 		}
 	}
-	os.Exit(1)
 }
 
 // LoadParameters reads and unmarshals the contents of the params file.
 func LoadParameters(params string) (loadedParams AlmaJob, err error) {
+	// Get the absolute path of params, not strictly necessary
+	// but it makes error messages more clear.
 	paramsFilePath, err := filepath.Abs(params)
 	if err != nil {
 		return loadedParams, err
 	}
+	// Open the file for reading.
 	paramsFile, err := os.Open(paramsFilePath)
 	if err != nil {
 		return loadedParams, err
 	}
+	// Defer the file close to the end of the function.
 	defer paramsFile.Close()
+
+	// Decode the file into an AlmaJob struct.
 	decoder := xml.NewDecoder(paramsFile)
 	err = decoder.Decode(&loadedParams)
 	if err != nil {
@@ -183,9 +205,26 @@ func LoadParameters(params string) (loadedParams AlmaJob, err error) {
 	return loadedParams, nil
 }
 
-// SubmitJob sends a POST HTTP message to the Alma API to execute the job.
-func SubmitJob(url *url.URL, timeout int, almaAPIKey string, params AlmaJob) (jobInstanceID string, err error) {
+// RetrySubmitJob retries SubmitJob max retries times.
+func RetrySubmitJob(maxRetries int, url *url.URL, timeout int, key string, params AlmaJob) (jobInstanceLink string, err error) {
+	for retry := 0; retry < maxRetries; retry++ {
+		// Submit the Job, get the job instance ID back.
+		jobInstanceLink, err := SubmitJob(url, timeout, key, params)
+		if err != nil {
+			// We encountered some error, retry with backoff.
+			log.Println("Failed to submit job: ", err)
+			sleepDur := time.Duration((retry+1)*(retry+1)) * time.Second
+			log.Printf("Retrying in %v (%v/%v)\n", sleepDur, retry+1, maxRetries)
+			time.Sleep(sleepDur)
+			continue
+		}
+		return jobInstanceLink, nil
+	}
+	return "", fmt.Errorf("maximum number of retries reached")
+}
 
+// SubmitJob sends a POST HTTP request to the Alma API to execute the job.
+func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstanceLink string, err error) {
 	// Setup the job parameter data as a io.Reader
 	marshaledParams := new(bytes.Buffer)
 	encoder := xml.NewEncoder(marshaledParams)
@@ -194,16 +233,18 @@ func SubmitJob(url *url.URL, timeout int, almaAPIKey string, params AlmaJob) (jo
 		return "", err
 	}
 
-	// Setup the HTTP request
+	// Setup an HTTP client with a timeout.
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
 
+	// Setup the request.
 	request, err := http.NewRequest("POST", url.String(), marshaledParams)
 	if err != nil {
 		return "", err
 	}
-	request.Header.Add("Authorization", "apikey "+almaAPIKey)
+	request.Header.Add("Authorization", "apikey "+key)
+	request.Header.Add("Content-Type", "application/xml")
 
 	// Do the request.
 	// On error, drain and close the response body.
@@ -222,17 +263,18 @@ func SubmitJob(url *url.URL, timeout int, almaAPIKey string, params AlmaJob) (jo
 		log.Printf("%v Alma API calls remaining.\n", remainingCalls)
 	}
 
-	// If the response was a 400 error, we can parse the returned XML.
+	// If the response was a 400 error, we can (usually) parse the returned XML.
 	if resp.StatusCode == 400 {
 		apiErr := &APIError{}
 		decoder := xml.NewDecoder(resp.Body)
 		err := decoder.Decode(apiErr)
+		// If the decode failed, still drain and close the response body.
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return "", fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
+			return "", fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
 		}
-		return "", apiErr.Collapse()
+		return "", fmt.Errorf("alma API request failed, HTTP status %v, %v", resp.Status, apiErr.Collapse())
 	}
 
 	// If the Status != OK, there was an error we didn't catch yet.
@@ -245,6 +287,7 @@ func SubmitJob(url *url.URL, timeout int, almaAPIKey string, params AlmaJob) (jo
 		return "", fmt.Errorf("alma API request failed: %v - %v", resp.Status, string(bodyBytes))
 	}
 
+	// Decode the job and return the job instance ID.
 	returnedJob := &AlmaJob{}
 	decoder := xml.NewDecoder(resp.Body)
 	err = decoder.Decode(returnedJob)
@@ -253,9 +296,97 @@ func SubmitJob(url *url.URL, timeout int, almaAPIKey string, params AlmaJob) (jo
 	if err != nil {
 		return "", err
 	}
+	return returnedJob.AdditionalInfo.Link, nil
+}
 
-	return path.Base(returnedJob.AdditionalInfo.Link), nil
+// MonitorJobInstance will request the job instance until the job is complete or
+// approximately 23 hours passes.
+func MonitorJobInstance(url *url.URL, timeout int, key string) (finalStatus string, err error) {
+	for i := 1; i < 2761; i++ {
+		instance, err := GetJobInstance(url, timeout, key)
+		if err != nil {
+			return "", err
+		}
+		log.Println("Job Status: ", instance.Status.Desc)
+		if instance.EndTime != "" && instance.Status.Value != "FINALIZING" {
+			marshaledInstance, err := xml.MarshalIndent(instance, "", "  ")
+			if err == nil {
+				log.Println("XML of final job instance:")
+				log.Println("\n", string(marshaledInstance))
+			}
+			return instance.Status.Desc, nil
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return "", fmt.Errorf("job monitor has been running for 23 hours, exiting")
+}
 
+// GetJobInstance sends a GET HTTP request to the Alma API to get job instance data
+func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobInstance, err error) {
+	instance = &AlmaJobInstance{}
+
+	// Setup an HTTP client with a timeout.
+	client := &http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
+	}
+
+	// Setup the request.
+	request, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return instance, err
+	}
+	request.Header.Add("Authorization", "apikey "+key)
+
+	// Do the request.
+	// On error, drain and close the response body.
+	resp, err := client.Do(request)
+	if err != nil {
+		if resp != nil {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
+		return instance, err
+	}
+
+	// Log the remaning number of API calls.
+	remainingCalls := resp.Header.Get("X-Exl-Api-Remaining")
+	if remainingCalls != "" {
+		log.Printf("%v Alma API calls remaining.\n", remainingCalls)
+	}
+
+	// If the response was a 400 error, we can (usually) parse the returned XML.
+	if resp.StatusCode == 400 {
+		apiErr := &APIError{}
+		decoder := xml.NewDecoder(resp.Body)
+		err := decoder.Decode(apiErr)
+		// If the decode failed, still drain and close the response body.
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return instance, fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
+		}
+		return instance, fmt.Errorf("alma API request failed, HTTP status %v, %v", resp.Status, apiErr.Collapse())
+	}
+
+	// If the Status != OK, there was an error we didn't catch yet.
+	if resp.StatusCode != 200 {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return instance, fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
+		}
+		return instance, fmt.Errorf("alma API request failed: %v - %v", resp.Status, string(bodyBytes))
+	}
+
+	// Decode the job and return the job instance ID.
+	decoder := xml.NewDecoder(resp.Body)
+	err = decoder.Decode(instance)
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return instance, err
+	}
+	return instance, nil
 }
 
 // SendEmail sends an email using the provided configuration.
