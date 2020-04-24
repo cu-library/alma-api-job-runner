@@ -47,6 +47,9 @@ func main() {
 	sendEmail := flag.Bool("email", false, "Send an email report.")
 	smtpServer := flag.String("smtpserver", "", "The SMTP server to use for sending report emails.")
 	smtpPort := flag.Int("smtpport", DefaultSMTPPort, "The port to use when connecting to the SMTP server.")
+	smtpUsername := flag.String("smtpusername", "", "The username to use when connecting to the SMTP server.")
+	smtpPassword := flag.String("smtppassword", "", "The password/secret to use when connecting to the SMTP server.")
+	smtpAuthMethod := flag.String("smtpauthmethod", "", "The Auth method used by the SMTP server: plain or crammd5. No authentication is used by default.")
 	mailTo := flag.String("mailto", "", "The email address to send reports to, comma delimited.")
 	mailFrom := flag.String("mailfrom", "", "The email address reports are send from.")
 
@@ -95,7 +98,12 @@ func main() {
 			log.Fatal("FATAL: At least one email address to send reports to must be provided if using the email option.")
 		}
 		if *mailFrom == "" {
-			log.Fatal("FATAL: An email address reports are send from must be provided if using the email option.")
+			log.Fatal("FATAL: The email address reports are sent from must be provided if using the email option.")
+		}
+		if *smtpAuthMethod != "" {
+			if *smtpAuthMethod != "crammd5" && *smtpAuthMethod != "plain" {
+				log.Fatal("FATAL: 'crammd5' and 'plain' are the only supported auth methods for connecting to the SMTP server.")
+			}
 		}
 	}
 
@@ -114,10 +122,11 @@ func main() {
 	log.Println("Parameters file (params):", *params)
 	log.Println("Sending email (email):", *sendEmail)
 
-	// A closure to optionally send the report email and quit
+	// A closure to optionally send the report email and exit
+	// with a non-zero error code.
 	optionalEmailAndQuit := func() {
 		if *sendEmail {
-			err := SendEmail(*name+" -- error", emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
+			err := SendEmail(*name+" -- error", emailMessage, *smtpServer, *smtpPort, *mailTo, *mailFrom, *smtpUsername, *smtpPassword, *smtpAuthMethod)
 			if err != nil {
 				log.Println(err)
 			}
@@ -153,12 +162,11 @@ func main() {
 		log.Println("Error when submitting job: ", err)
 		optionalEmailAndQuit()
 	}
-
 	log.Println("Successful job submission.")
 
 	instanceURL, err := url.Parse(jobInstanceLink)
 	if err != nil {
-		log.Println("Error parsing instance url from job additional info: ", err)
+		log.Printf("Error parsing instance url (%v) from job additional info: %v\n", jobInstanceLink, err)
 		optionalEmailAndQuit()
 	}
 	log.Println("Going to monitor job at: ", instanceURL)
@@ -173,7 +181,7 @@ func main() {
 
 	if *sendEmail {
 		subject := fmt.Sprintf("%v -- %v", *name, finalStatus)
-		err := SendEmail(subject, emailMessage, smtpServer, smtpPort, mailTo, mailFrom)
+		err := SendEmail(subject, emailMessage, *smtpServer, *smtpPort, *mailTo, *mailFrom, *smtpUsername, *smtpPassword, *smtpAuthMethod)
 		if err != nil {
 			log.Println(err)
 		}
@@ -195,7 +203,6 @@ func LoadParameters(params string) (loadedParams AlmaJob, err error) {
 	}
 	// Defer the file close to the end of the function.
 	defer paramsFile.Close()
-
 	// Decode the file into an AlmaJob struct.
 	decoder := xml.NewDecoder(paramsFile)
 	err = decoder.Decode(&loadedParams)
@@ -390,15 +397,21 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 }
 
 // SendEmail sends an email using the provided configuration.
-func SendEmail(subject string, emailMessage *bytes.Buffer, smtpServer *string, smtpPort *int, mailTo, mailFrom *string) error {
-	to := TrimSpaceAll(strings.Split(*mailTo, ","))
+func SendEmail(subject string, emailMessage *bytes.Buffer, smtpServer string, smtpPort int, mailTo, mailFrom, smtpUsername, smtpPassword, smtpAuthMethod string) error {
+	var auth smtp.Auth
+	if smtpAuthMethod == "crammd5" {
+		auth = smtp.CRAMMD5Auth(smtpUsername, smtpPassword)
+	} else if smtpAuthMethod == "plain" {
+		auth = smtp.PlainAuth("", smtpUsername, smtpPassword, smtpServer)
+	}
+	to := TrimSpaceAll(strings.Split(mailTo, ","))
 	finalMsg := new(bytes.Buffer)
 	finalMsg.WriteString(fmt.Sprintf("To: %v\r\n", strings.Join(to, ", ")))
 	finalMsg.WriteString(fmt.Sprintf("Subject: %v\r\n", subject))
 	finalMsg.WriteString("\r\n")
 	bodyMsg := bytes.ReplaceAll(emailMessage.Bytes(), []byte("\n"), []byte("\r\n"))
 	finalMsg.Write(bodyMsg)
-	return smtp.SendMail(*smtpServer+":"+strconv.Itoa(*smtpPort), nil, *mailFrom, to, finalMsg.Bytes())
+	return smtp.SendMail(smtpServer+":"+strconv.Itoa(smtpPort), auth, mailFrom, to, finalMsg.Bytes())
 }
 
 // TrimSpaceAll returns a version of trimMe where each element has been TrimSpace'd.
