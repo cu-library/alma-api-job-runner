@@ -4,9 +4,9 @@
 
 This CLI tool simplifies submitting jobs to the Alma Jobs API.
 
-It was designed so that system administrators could easily set up a cron job to schedule jobs in Alma which cannot be scheduled normally.
+It was designed so that system administrators could easily set up a cron job to schedule "manual" jobs in Alma which cannot be scheduled normally.
 
-Set up job using the directions from this blog post: https://developers.exlibrisgroup.com/blog/Working-with-the-Alma-Jobs-API/.
+Set up a job using the directions from this blog post: https://developers.exlibrisgroup.com/blog/Working-with-the-Alma-Jobs-API/.
 Save the parameters in the "API Information" -> "XML" panel as an XML file.
 Then run the tool, providing the:
 * domain name of your Alma API server (https://developers.exlibrisgroup.com/alma/apis/#calling)
