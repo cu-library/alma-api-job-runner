@@ -64,14 +64,14 @@ func TestAlmaJobMarshalandUnmarshal(t *testing.T) {
 		Creator: "A Cool Cat",
 		NextRun: "2015-07-20",
 		Parameters: []Parameter{
-			Parameter{
+			{
 				Name: DescAndValue{
 					Desc:  "param desc",
 					Value: "DESC",
 				},
 				Value: "AlphaBetaGamma",
 			},
-			Parameter{
+			{
 				Name: DescAndValue{
 					Desc:  "param desc 2",
 					Value: "DESC2",
@@ -169,13 +169,13 @@ func TestAlmaJobInstanceMarshalandUnmarshal(t *testing.T) {
 		},
 		StatusDate: "2015-07-20",
 		Alerts: []DescAndValue{
-			DescAndValue{
+			{
 				Desc:  "alert desc",
 				Value: "alert_general_success",
 			},
 		},
 		Counters: []Counter{
-			Counter{
+			{
 				Type: DescAndValue{
 					Desc:  "counter extreme",
 					Value: "4",

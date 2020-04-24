@@ -20,19 +20,19 @@ func TestLoadParameters(t *testing.T) {
 			Local: "job",
 		},
 		Parameters: []Parameter{
-			Parameter{
+			{
 				Name: DescAndValue{
 					Value: "task_MmsTaggingParams_boolean",
 				},
 				Value: "NONE",
 			},
-			Parameter{
+			{
 				Name: DescAndValue{
 					Value: "set_id",
 				},
 				Value: "4000000000000",
 			},
-			Parameter{
+			{
 				Name: DescAndValue{
 					Value: "job_name",
 				},
