@@ -12,7 +12,7 @@ builds:
     - netbsd
     - openbsd
   goarch:
-    - amd46
+    - amd64
     - arm
     - arm64
     - 386
@@ -20,7 +20,8 @@ builds:
     - 6
     - 7
 archives:
-- replacements:
+- name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}{{ end }}"
+  replacements:
     darwin: macOS
     windows: Windows
     amd64: x86_64
