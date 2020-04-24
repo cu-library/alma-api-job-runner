@@ -3,7 +3,22 @@ before:
     - go mod download
 builds:
 - env:
-  - CGO_ENABLED=0
+    - CGO_ENABLED=0
+  goos:
+    - darwin
+    - linux
+    - freebsd
+    - windows
+    - netbsd
+    - openbsd
+  goarch:
+    - amd46
+    - arm
+    - arm64
+    - 386
+  goarm:
+    - 6
+    - 7
 archives:
 - replacements:
     darwin: macOS
