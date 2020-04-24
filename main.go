@@ -171,19 +171,29 @@ func main() {
 	}
 	log.Println("Going to monitor job at: ", instanceURL)
 
-	finalStatus, err := MonitorJobInstance(instanceURL, *timeout, *key)
+	instance, err := MonitorJobInstance(instanceURL, *timeout, *key)
 	if err != nil {
 		log.Println("Error monitoring job instance: ", err)
 		optionalEmailAndQuit()
 	}
 
-	fmt.Println("Final status: ", finalStatus)
+	// Print the XML output of the final job instance to stdout
+	marshaledInstance, err := xml.MarshalIndent(instance, "", "  ")
+	if err == nil {
+		fmt.Println(string(marshaledInstance))
+		_, err := emailMessage.Write(marshaledInstance)
+		if err != nil {
+			log.Println("Error writing XML representation to email message: ", err)
+		}
+	}
 
 	if *sendEmail {
-		subject := fmt.Sprintf("%v -- %v", *name, finalStatus)
+		subject := fmt.Sprintf("%v -- %v", *name, instance.Status.Desc)
 		err := SendEmail(subject, emailMessage, *smtpServer, *smtpPort, *mailTo, *mailFrom, *smtpUsername, *smtpPassword, *smtpAuthMethod)
 		if err != nil {
 			log.Println(err)
+		} else {
+			log.Println("Email sent successfully")
 		}
 	}
 }
@@ -308,24 +318,19 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 
 // MonitorJobInstance will request the job instance until the job is complete or
 // approximately 23 hours passes.
-func MonitorJobInstance(url *url.URL, timeout int, key string) (finalStatus string, err error) {
+func MonitorJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobInstance, err error) {
 	for i := 1; i < 2761; i++ {
 		instance, err := GetJobInstance(url, timeout, key)
 		if err != nil {
-			return "", err
+			return instance, err
 		}
 		log.Println("Job Status: ", instance.Status.Desc)
 		if instance.EndTime != "" && instance.Status.Value != "FINALIZING" {
-			marshaledInstance, err := xml.MarshalIndent(instance, "", "  ")
-			if err == nil {
-				log.Println("XML of final job instance:")
-				log.Println("\n", string(marshaledInstance))
-			}
-			return instance.Status.Desc, nil
+			return instance, nil
 		}
 		time.Sleep(30 * time.Second)
 	}
-	return "", fmt.Errorf("job monitor has been running for 23 hours, exiting")
+	return instance, fmt.Errorf("job monitor has been running for 23 hours, exiting")
 }
 
 // GetJobInstance sends a GET HTTP request to the Alma API to get job instance data
