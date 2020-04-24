@@ -10,9 +10,9 @@ Set up job using the directions from this blog post: https://developers.exlibris
 Save the parameters in the "API Information" -> "XML" panel as an XML file.
 Then run the tool, providing the:
 * domain name of your Alma API server (https://developers.exlibrisgroup.com/alma/apis/#calling)
-* Alma API Key (https://developers.exlibrisgroup.com/manage/keys/, make sure the API Key is configured with the "Configuration - Production Read/write" permission.
-* URL (without the leading 'POST ') from the "API Information" -> "URL" panel.
-* The path to the parameters file.
+* Alma API Key (https://developers.exlibrisgroup.com/manage/keys/, make sure the API Key is configured with the "Configuration - Production Read/write" permission)
+* URL (without the leading 'POST ') from the "API Information" -> "URL" panel
+* the path to the parameters file
 
 This tool:
 * supports sending an email report using SMTP.
