@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -250,13 +251,11 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 		return "", err
 	}
 
-	// Setup an HTTP client with a timeout.
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
 
 	// Setup the request.
-	request, err := http.NewRequest("POST", url.String(), marshaledParams)
+	request, err := http.NewRequestWithContext(ctx, "POST", url.String(), marshaledParams)
 	if err != nil {
 		return "", err
 	}
@@ -265,7 +264,7 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 
 	// Do the request.
 	// On error, drain and close the response body.
-	resp, err := client.Do(request)
+	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		if resp != nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
@@ -337,13 +336,11 @@ func MonitorJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJo
 func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobInstance, err error) {
 	instance = &AlmaJobInstance{}
 
-	// Setup an HTTP client with a timeout.
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
 
 	// Setup the request.
-	request, err := http.NewRequest("GET", url.String(), nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
 	if err != nil {
 		return instance, err
 	}
@@ -351,7 +348,7 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 
 	// Do the request.
 	// On error, drain and close the response body.
-	resp, err := client.Do(request)
+	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		if resp != nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
