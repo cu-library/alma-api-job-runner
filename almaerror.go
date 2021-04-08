@@ -6,8 +6,12 @@ package main
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 )
+
+// ErrAPIError is an error which is used when the Alma API returns an error.
+var ErrAPIError = errors.New("an API error occurred")
 
 // APIError is a struct which stores the data from Alma API errors.
 type APIError struct {
@@ -25,7 +29,7 @@ type APIError struct {
 // error codes which mean the same thing.
 func (e *APIError) Collapse() error {
 	if len(e.ErrorList) > 0 {
-		return fmt.Errorf("%v: %v", e.ErrorList[0].Error.ErrorCode, e.ErrorList[0].Error.ErrorMessage)
+		return fmt.Errorf("%w: %v - %v", ErrAPIError, e.ErrorList[0].Error.ErrorCode, e.ErrorList[0].Error.ErrorMessage)
 	}
-	return fmt.Errorf("unknown error")
+	return fmt.Errorf("%w: unknown error", ErrAPIError)
 }

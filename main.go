@@ -237,7 +237,7 @@ func RetrySubmitJob(maxRetries int, url *url.URL, timeout int, key string, param
 		}
 		return jobInstanceLink, nil
 	}
-	return "", fmt.Errorf("maximum number of retries reached")
+	return "", fmt.Errorf("%w: maximum number of retries reached", ErrAPIError)
 }
 
 // SubmitJob sends a POST HTTP request to the Alma API to execute the job.
@@ -289,9 +289,9 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return "", fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
+			return "", fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %w", resp.Status, err)
 		}
-		return "", fmt.Errorf("alma API request failed, HTTP status %v, %v", resp.Status, apiErr.Collapse())
+		return "", fmt.Errorf("alma API request failed, HTTP status %v, %w", resp.Status, apiErr.Collapse())
 	}
 
 	// If the Status != OK, there was an error we didn't catch yet.
@@ -299,9 +299,9 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return "", fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
+			return "", fmt.Errorf("alma API request failed: %v couldn't read body: %w", resp.Status, err)
 		}
-		return "", fmt.Errorf("alma API request failed: %v - %v", resp.Status, string(bodyBytes))
+		return "", fmt.Errorf("alma API request failed: %v - %v: %w", resp.Status, string(bodyBytes), ErrAPIError)
 	}
 
 	// Decode the job and return the job instance ID.
@@ -330,7 +330,7 @@ func MonitorJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJo
 		}
 		time.Sleep(30 * time.Second)
 	}
-	return instance, fmt.Errorf("job monitor has been running for 23 hours, exiting")
+	return instance, fmt.Errorf("%w: job monitor has been running for 23 hours, exiting", ErrAPIError)
 }
 
 // GetJobInstance sends a GET HTTP request to the Alma API to get job instance data.
@@ -375,9 +375,9 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return instance, fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
+			return instance, fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %w", resp.Status, err)
 		}
-		return instance, fmt.Errorf("alma API request failed, HTTP status %v, %v", resp.Status, apiErr.Collapse())
+		return instance, fmt.Errorf("alma API request failed, HTTP status %v, %w", resp.Status, apiErr.Collapse())
 	}
 
 	// If the Status != OK, there was an error we didn't catch yet.
@@ -385,9 +385,9 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return instance, fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
+			return instance, fmt.Errorf("alma API request failed: %v couldn't read body: %w", resp.Status, err)
 		}
-		return instance, fmt.Errorf("alma API request failed: %v - %v", resp.Status, string(bodyBytes))
+		return instance, fmt.Errorf("alma API request failed: %v - %v: %w", resp.Status, string(bodyBytes), ErrAPIError)
 	}
 
 	// Decode the job and return the job instance ID.
