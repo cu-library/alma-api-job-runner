@@ -229,7 +229,8 @@ func RetrySubmitJob(maxRetries int, url *url.URL, timeout int, key string, param
 		if err != nil {
 			// We encountered some error, retry with backoff.
 			log.Println("Failed to submit job: ", err)
-			sleepDur := time.Duration((retry+1)*(retry+1)) * time.Second
+			sleepSeconds := (retry + 1) * (retry + 1)
+			sleepDur := time.Duration(sleepSeconds) * time.Second
 			log.Printf("Retrying in %v (%v/%v)\n", sleepDur, retry+1, maxRetries)
 			time.Sleep(sleepDur)
 			continue
