@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/smtp"
@@ -268,7 +267,7 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 	resp, err := client.Do(request)
 	if err != nil {
 		if resp != nil {
-			io.Copy(ioutil.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 		return "", err
@@ -286,7 +285,7 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 		decoder := xml.NewDecoder(resp.Body)
 		err := decoder.Decode(apiErr)
 		// If the decode failed, still drain and close the response body.
-		io.Copy(ioutil.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return "", fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
@@ -296,7 +295,7 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 
 	// If the Status != OK, there was an error we didn't catch yet.
 	if resp.StatusCode != 200 {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return "", fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
@@ -308,7 +307,7 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 	returnedJob := &AlmaJob{}
 	decoder := xml.NewDecoder(resp.Body)
 	err = decoder.Decode(returnedJob)
-	io.Copy(ioutil.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return "", err
@@ -354,7 +353,7 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 	resp, err := client.Do(request)
 	if err != nil {
 		if resp != nil {
-			io.Copy(ioutil.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 		return instance, err
@@ -372,7 +371,7 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 		decoder := xml.NewDecoder(resp.Body)
 		err := decoder.Decode(apiErr)
 		// If the decode failed, still drain and close the response body.
-		io.Copy(ioutil.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return instance, fmt.Errorf("alma API request failed, HTTP status %v, couldn't read body: %v", resp.Status, err)
@@ -382,7 +381,7 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 
 	// If the Status != OK, there was an error we didn't catch yet.
 	if resp.StatusCode != 200 {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return instance, fmt.Errorf("alma API request failed: %v couldn't read body: %v", resp.Status, err)
@@ -393,7 +392,7 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 	// Decode the job and return the job instance ID.
 	decoder := xml.NewDecoder(resp.Body)
 	err = decoder.Decode(instance)
-	io.Copy(ioutil.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return instance, err
