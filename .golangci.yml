@@ -19,7 +19,6 @@ linters:
     - unparam
     - wastedassign
     - whitespace
-    - wsl
 linters-settings:
   godot:
     scope: all
