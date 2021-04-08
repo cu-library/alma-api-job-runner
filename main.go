@@ -1,4 +1,4 @@
-// Copyright 2020 Carleton University Library All rights reserved.
+// Copyright 2021 Carleton University Library All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
 
@@ -156,7 +156,7 @@ func main() {
 		log.Printf(" %v: %v\n", param.Name.Value, param.Value)
 	}
 
-	// Retry for max retries
+	// Retry for max retries.
 	jobInstanceLink, err := RetrySubmitJob(*maxRetries, jobURL, *timeout, *key, loadedParams)
 	if err != nil {
 		log.Println("Error when submitting job: ", err)
@@ -177,7 +177,7 @@ func main() {
 		optionalEmailAndQuit()
 	}
 
-	// Print the XML output of the final job instance to stdout
+	// Print the XML output of the final job instance to stdout.
 	marshaledInstance, err := xml.MarshalIndent(instance, "", "  ")
 	if err == nil {
 		fmt.Println(string(marshaledInstance))
@@ -242,7 +242,7 @@ func RetrySubmitJob(maxRetries int, url *url.URL, timeout int, key string, param
 
 // SubmitJob sends a POST HTTP request to the Alma API to execute the job.
 func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstanceLink string, err error) {
-	// Setup the job parameter data as a io.Reader
+	// Setup the job parameter data as a io.Reader.
 	marshaledParams := new(bytes.Buffer)
 	encoder := xml.NewEncoder(marshaledParams)
 	err = encoder.Encode(params)
@@ -333,7 +333,7 @@ func MonitorJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJo
 	return instance, fmt.Errorf("job monitor has been running for 23 hours, exiting")
 }
 
-// GetJobInstance sends a GET HTTP request to the Alma API to get job instance data
+// GetJobInstance sends a GET HTTP request to the Alma API to get job instance data.
 func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobInstance, err error) {
 	instance = &AlmaJobInstance{}
 

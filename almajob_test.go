@@ -1,4 +1,4 @@
-// Copyright 2020 Carleton University Library All rights reserved.
+// Copyright 2021 Carleton University Library All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,6 @@ import (
 )
 
 func TestAlmaJobMarshalandUnmarshal(t *testing.T) {
-
 	expectedMarshalled := `<job link="joblink">
   <id>M26714670000011</id>
   <name>Export Physical Items (name)</name>
@@ -112,7 +111,6 @@ func TestAlmaJobMarshalandUnmarshal(t *testing.T) {
 }
 
 func TestAlmaJobInstanceMarshalandUnmarshal(t *testing.T) {
-
 	expectedMarshalled := `<job_instance link="job instance link">
   <id>1108569450000121</id>
   <external_id>1108569450000122</external_id>

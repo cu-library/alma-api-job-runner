@@ -1,4 +1,4 @@
-// Copyright 2020 Carleton University Library All rights reserved.
+// Copyright 2021 Carleton University Library All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,6 @@ import (
 )
 
 func TestLoadParameters(t *testing.T) {
-
 	expectedJob := AlmaJob{
 		XMLName: xml.Name{
 			Space: "",
@@ -62,7 +61,7 @@ func TestLoadParameters(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer os.Remove(tmpFile.Name()) // clean up
+	defer os.Remove(tmpFile.Name()) // Clean up.
 
 	_, err = tmpFile.Write(content)
 	if err != nil {
@@ -79,5 +78,4 @@ func TestLoadParameters(t *testing.T) {
 		t.Logf("\n%#v\n%#v\n", expectedJob, params)
 		t.Fatal("Expected job and job loaded through LoadParameters() are not equal.")
 	}
-
 }
