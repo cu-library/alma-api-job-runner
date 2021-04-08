@@ -1,0 +1,28 @@
+linters:
+  enable:
+    - bodyclose
+    - durationcheck
+    - errorlint
+    - exhaustive
+    - gochecknoglobals
+    - goconst
+    - gocritic
+    - godot
+    - goerr113
+    - goimports
+    - gosec
+    - misspell
+    - nilerr
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - unparam
+    - wastedassign
+    - whitespace
+    - wsl
+linters-settings:
+  godot:
+    scope: all
+    capital: true
+issues:
+  fix: true
