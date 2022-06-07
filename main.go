@@ -263,13 +263,8 @@ func SubmitJob(url *url.URL, timeout int, key string, params AlmaJob) (jobInstan
 	request.Header.Add("Content-Type", "application/xml")
 
 	// Do the request.
-	// On error, drain and close the response body.
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		if resp != nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
 		return "", err
 	}
 
@@ -347,13 +342,8 @@ func GetJobInstance(url *url.URL, timeout int, key string) (instance *AlmaJobIns
 	request.Header.Add("Authorization", "apikey "+key)
 
 	// Do the request.
-	// On error, drain and close the response body.
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		if resp != nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
 		return instance, err
 	}
 
