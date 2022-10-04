@@ -6,7 +6,6 @@ package main
 
 import (
 	"encoding/xml"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -57,7 +56,7 @@ func TestLoadParameters(t *testing.T) {
 	</parameters>
 </job>`)
 
-	tmpFile, err := ioutil.TempFile("", "*.params.xml")
+	tmpFile, err := os.CreateTemp("", "*.params.xml")
 	if err != nil {
 		t.Error(err)
 	}
