@@ -3,7 +3,6 @@ builds:
       - CGO_ENABLED=0
     targets:
       - go_first_class
-
 archives:
   - format: tar.gz
     wrap_in_directory: true
@@ -21,7 +20,7 @@ archives:
       format: zip
 checksum:
   algorithm: sha256
-  name_template: 'sha256_checksums.txt'
+  name_template: 'checksums.sha265'
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:

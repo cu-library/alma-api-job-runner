@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +60,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "alma-api-job-runner:\n")
 		fmt.Fprintf(os.Stderr, "Run a manual job in Alma using the Jobs API.\n")
 		fmt.Fprintf(os.Stderr, "Version %v\n", version)
+		fmt.Fprintf(flag.CommandLine.Output(), "Compiled with %v\n", runtime.Version())
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "  Environment variables read when flag is unset:")
 
