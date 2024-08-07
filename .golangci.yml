@@ -8,7 +8,7 @@ linters:
     - goconst
     - gocritic
     - godot
-    - goerr113
+    - err113
     - goimports
     - gosec
     - misspell
