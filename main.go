@@ -79,6 +79,19 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// Unset the environment variables which contain secrets.
+	log.Println("Checking the environment for variables which might contain secrets, and unsetting them.")
+	flag.VisitAll(func(f *flag.Flag) {
+		if strings.Contains(f.Name, "pass") || strings.Contains(f.Name, "key") {
+			key := fmt.Sprintf("%v%v", EnvPrefix, strings.ToUpper(f.Name))
+			_, set := os.LookupEnv(key)
+			if set {
+				_ = os.Unsetenv(key)
+				log.Printf("The environment variable %v has been unset.\n", key)
+			}
+		}
+	})
+
 	// Exit if any required flags are not set.
 	if *domain == "" {
 		log.Fatal("FATAL: An Alma API Server domain is required. https://developers.exlibrisgroup.com/alma/apis/#calling")
